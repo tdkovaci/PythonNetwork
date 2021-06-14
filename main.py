@@ -15,7 +15,7 @@ def split_data_set(input_file):
             split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
         if i == len(input_file) / 2:
             split_file = open(str('Resources/DogeCoinEvalSet.csv'), 'w+')
-            split_file.write("Currency,Date,Closing Price,Open,High,Low\n")
+            split_file.write("Date,Closing Price,Open,High,Low\n")
             split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
 
 
@@ -41,7 +41,7 @@ training_target_col = training_data.pop('Closing Price')
 evaluation_target_col = eval_data.pop('Closing Price')
 # print(evaluation_target_col)
 
-category_cols = ['Currency', 'Date']
+category_cols = ['Date']
 numeric_cols = ['Open', 'High', 'Low']
 
 feature_cols = []
