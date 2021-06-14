@@ -19,7 +19,7 @@ def split_data_set(input_file):
             split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
 
 
-def make_input_fn(data, target, epochs=10, shuffle=True, batch_size=32):
+def make_input_fn(data, target, epochs=5, shuffle=True, batch_size=8):
     def input_function():
         data_set = tf.data.Dataset.from_tensor_slices((dict(data), target))
         if shuffle:
@@ -61,4 +61,4 @@ linear_estimator = tf.estimator.LinearClassifier(feature_cols)
 linear_estimator.train(training_function)
 result = linear_estimator.evaluate(evaluation_function)
 
-print(result['accuracy'])
+print(result['average_loss'])
