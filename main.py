@@ -15,7 +15,7 @@ def split_data_set(input_file):
             split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
         if i == len(input_file) / 2:
             split_file = open(str('Resources/DogeCoinEvalSet.csv'), 'w+')
-            split_file.write("SNo,Name,Symbol,Date,High,Low,Open,Close,Volume,Marketcap\n")
+            split_file.write("Currency,Date,Closing Price,Open,High,Low\n")
             split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
 
 
@@ -37,12 +37,12 @@ split_data_set(csv_file)
 training_data = pd.read_csv('Resources/DogeCoinTrainingSet.csv')
 eval_data = pd.read_csv('Resources/DogeCoinEvalSet.csv')
 
-training_target_col = training_data.pop('Close')
-evaluation_target_col = eval_data.pop('Close')
+training_target_col = training_data.pop('Closing Price')
+evaluation_target_col = eval_data.pop('Closing Price')
 # print(evaluation_target_col)
 
-category_cols = ['Name', 'Symbol', 'Date']
-numeric_cols = ['SNo', 'High', 'Low', 'Open', 'Volume', 'Marketcap']
+category_cols = ['Currency', 'Date']
+numeric_cols = ['Open', 'High', 'Low']
 
 feature_cols = []
 for feature_name in category_cols:
