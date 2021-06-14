@@ -19,41 +19,43 @@ def split_data_set(input_file):
             split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
 
 
-def make_input_fn(data, target, epochs=4, shuffle=True, batch_size=100):
+def make_input_fn(data, target, epochs=10, shuffle=True, batch_size=32):
     def input_function():
         data_set = tf.data.Dataset.from_tensor_slices((dict(data), target))
         if shuffle:
-            data_set = data_set.shuffle(2000)
+            data_set = data_set.shuffle(1000)
         data_set = data_set.batch(batch_size).repeat(epochs)
         return data_set
 
     return input_function()
 
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 csv_file = open('Resources/DogeCoinInitialSet.csv', 'r').readlines()
 split_data_set(csv_file)
 
-training_data = pd.read_csv('Resources/DogeCoinTrainingSet.csv')
+train_data = pd.read_csv('Resources/DogeCoinTrainingSet.csv')
 eval_data = pd.read_csv('Resources/DogeCoinEvalSet.csv')
 
-training_target_col = training_data.pop('Closing Price')
-evaluation_target_col = eval_data.pop('Closing Price')
-# print(evaluation_target_col)
+train_features = train_data.copy()
+train_labels = train_features.pop('Closing Price')
+
+eval_features = eval_data.copy()
+eval_labels = eval_features.pop('Closing Price')
 
 category_cols = ['Date']
 numeric_cols = ['Open', 'High', 'Low']
 
 feature_cols = []
 for feature_name in category_cols:
-    vocab = training_data[feature_name].unique()
+    vocab = train_data[feature_name].unique()
     feature_cols.append(tf.feature_column.categorical_column_with_vocabulary_list(feature_name, vocab))
 
 for feature_name in numeric_cols:
     feature_cols.append(tf.feature_column.numeric_column(feature_name))
 
-training_function = lambda: make_input_fn(training_data, training_target_col)
-evaluation_function = lambda: make_input_fn(eval_data, evaluation_target_col, 1, False)
+training_function = lambda: make_input_fn(train_data, train_labels)
+evaluation_function = lambda: make_input_fn(eval_data, eval_labels, 1, False)
 
 linear_estimator = tf.estimator.LinearClassifier(feature_cols)
 linear_estimator.train(training_function)
