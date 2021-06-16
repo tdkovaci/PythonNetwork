@@ -2,61 +2,57 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 
 import numpy
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
 
-
-def split_data_set(input_file):
-    for i in range(len(input_file)):
-        if i == 0:
-            split_file = open(str('Resources/DogeCoinTrainingSet.csv'), 'w+')
-            split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
-        if i == len(input_file) / 2:
-            split_file = open(str('Resources/DogeCoinEvalSet.csv'), 'w+')
-            split_file.write("Date,Closing Price,Open,High,Low\n")
-            split_file.writelines(input_file[i:i + (round(len(input_file) / 2))])
-
-
-def make_input_fn(data, target, epochs=5, shuffle=True, batch_size=8):
-    def input_function():
-        data_set = tf.data.Dataset.from_tensor_slices((dict(data), target))
-        if shuffle:
-            data_set = data_set.shuffle(1000)
-        data_set = data_set.batch(batch_size).repeat(epochs)
-        return data_set
-
-    return input_function()
-
-
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-csv_file = open('Resources/DogeCoinInitialSet.csv', 'r').readlines()
-split_data_set(csv_file)
 
-train_data = pd.read_csv('Resources/DogeCoinTrainingSet.csv')
-eval_data = pd.read_csv('Resources/DogeCoinEvalSet.csv')
+overall_data = np.asarray(pd.read_csv('Resources/DogeCoinInitialSet.csv')).astype(np.float32)
+train_data = overall_data[:round(len(overall_data) / 2)]
+eval_data = overall_data[round(len(overall_data) / 2):len(overall_data)]
 
 train_features = train_data.copy()
-train_labels = train_features.pop('Closing Price')
+train_labels = train_features[:, 0]
 
 eval_features = eval_data.copy()
-eval_labels = eval_features.pop('Closing Price')
+eval_labels = eval_features[:, 0]
 
-train_features.pop("Date")
-
-dataset = tf.data.Dataset.from_tensor_slices((train_features.values, train_labels.values))
-train_dataset = dataset.shuffle(len(train_features)).batch(1)
+print((train_features == eval_features))
 
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(10, activation='relu'),
-    tf.keras.layers.Dense(10, activation='relu'),
+    tf.keras.layers.Dense(64),
     tf.keras.layers.Dense(1),
 ])
 
+lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
+    0.001,
+    decay_steps=600 * 1000,
+    decay_rate=1,
+    staircase=False)
+
 model.compile(
-    optimizer='adam',
+    optimizer=tf.keras.optimizers.Adam(0.001),
     loss=tf.keras.losses.MeanSquaredError()
 )
 
-print(model.fit(train_dataset, epochs=15))
+history = model.fit(train_features, train_labels, batch_size=1, epochs=10, verbose=2,
+                    validation_data=(eval_features, eval_labels))
+
+predictions = model.predict(eval_features)
+print(predictions[-10:])
+
+plt.figure(figsize=(10,10))
+plt.scatter(eval_labels, predictions, c='crimson')
+plt.yscale('log')
+plt.xscale('log')
+
+p1 = max(max(predictions), max(eval_labels))
+p2 = min(min(predictions), min(eval_labels))
+plt.plot([p1, p2], [p1, p2], 'b-')
+plt.xlabel('True Values', fontsize=15)
+plt.ylabel('Predictions', fontsize=15)
+plt.axis('equal')
+plt.savefig('Resources/fig.png')
