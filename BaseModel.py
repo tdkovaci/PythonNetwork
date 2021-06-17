@@ -92,7 +92,7 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     # predictions = model.predict(array([[previous_prices_list]]))
     # print(predictions)
     prediction = round(model.predict(previous_prices_list)[-1:][0][0], 5)
-    difference = round(actual_price_float - prediction, 5)
+    difference = round(prediction - actual_price_float, 5)
     percent_error = round((difference / actual_price_float) * 100, 5)
     accuracy = round(100 - abs(percent_error), 5)
     total_accuracies.append(accuracy)
@@ -159,7 +159,7 @@ def collect_live_data(model, url):
         if len(previous_prices) % number_to_batch == 0:
             batched_data = batch_live_data(previous_prices, open_price, number_to_batch)
             train_on_batched_live_data(batched_data, model)
-            print('Re-training on past ' + str(number_to_batch) + ' live data prices')
+            print('XXXXXXXXX Re-training on past ' + str(number_to_batch) + ' live data prices XXXXXXXXX')
             time.sleep(3)
             previous_prices = []
 
