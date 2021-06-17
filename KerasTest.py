@@ -8,19 +8,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
+from numpy import array
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-overall_data = np.asarray(pd.read_csv('Resources/DogeCoinInitialSet.csv')).astype(np.float32)
-# train_data = overall_data
-train_data = overall_data[:round(len(overall_data) / 2)]
+overall_data = array(pd.read_csv('Resources/DOGE-USD.csv'))
+train_data = overall_data
+# train_data = overall_data[:round(len(overall_data) / 2)]
 eval_data = overall_data[round(len(overall_data) / 2):len(overall_data)]
 
 train_features = train_data.copy()
-train_labels = train_features[:, 0]
+train_labels = train_features[:, 3]
 
 eval_features = eval_data.copy()
-eval_labels = eval_features[:, 0]
+eval_labels = eval_features[:, 3]
 
 model = tf.keras.Sequential([
     tf.keras.layers.Dense(64),
@@ -35,10 +36,10 @@ lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
 
 model.compile(
     optimizer=tf.keras.optimizers.Adam(lr_schedule),
-    loss=tf.keras.losses.MeanSquaredError()
+    loss=tf.keras.losses.MeanSquaredError(),
 )
 
-history = model.fit(train_features, train_labels, batch_size=1, epochs=10)
+history = model.fit(train_features, train_labels, batch_size=round(len(train_data)/16), epochs=10, steps_per_epoch=16, shuffle=True)
 
 
 def plot_predictions():
@@ -66,9 +67,13 @@ def determine_price_data(new_price_input, open_price_input, high_price_input, lo
 
     if new_price_input > high_price_input:
         temp_high_price = new_price_input
+    else:
+        temp_high_price = high_price_input
 
     if new_price_input < low_price_input or low_price_input == 0:
         temp_low_price = new_price_input
+    else:
+        temp_low_price = low_price_input
 
     return new_price_input, temp_open_price, temp_high_price, temp_low_price
 
@@ -78,6 +83,8 @@ total_differences = []
 
 
 def predict_and_check(previous_prices_list, actual_price_str, actual_price_float):
+    # predictions = model.predict(array([[previous_prices_list]]))
+    # print(predictions)
     prediction = round(model.predict(previous_prices_list)[-1:][0][0], 5)
     difference = round(actual_price_float - prediction, 5)
     percent_error = round((difference / actual_price_float) * 100, 5)
