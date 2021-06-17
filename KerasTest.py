@@ -3,7 +3,6 @@ import os
 import time
 
 import requests
-import numpy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -44,7 +43,6 @@ history = model.fit(train_features, train_labels, batch_size=1, epochs=10)
 
 def plot_predictions():
     predictions = model.predict(eval_features)
-    print(predictions[-10:])
 
     plt.figure(figsize=(10, 10))
     plt.scatter(eval_labels, predictions, c='crimson')
@@ -75,15 +73,23 @@ def determine_price_data(new_price_input, open_price_input, high_price_input, lo
     return new_price_input, temp_open_price, temp_high_price, temp_low_price
 
 
+total_accuracies = []
+total_differences = []
+
+
 def predict_and_check(previous_prices_list, actual_price_str, actual_price_float):
-    prediction = model.predict(previous_prices_list)[-1:][0][0]
-    difference = actual_price_float - prediction
-    percent_error = (difference / actual_price_float) * 100
-    accuracy = 100 - percent_error
+    prediction = round(model.predict(previous_prices_list)[-1:][0][0], 5)
+    difference = round(actual_price_float - prediction, 5)
+    percent_error = round((difference / actual_price_float) * 100, 5)
+    accuracy = round(100 - abs(percent_error), 5)
+    total_accuracies.append(accuracy)
+    total_differences.append(difference)
     print('Newest prediction was: ' + str(prediction))
     print('Actual price was: ' + actual_price_str)
     print('Difference was: ' + str(difference))
+    print('Mean Difference is: ' + str(round(np.array(total_differences).mean(), 5)))
     print('Accuracy was: ' + str(accuracy))
+    print('Mean Accuracy is: ' + str(round(np.array(total_accuracies).mean(), 5)))
     print('+------------------------------------+')
 
 
