@@ -10,40 +10,45 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from numpy import array
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-overall_data = array(pd.read_csv('Resources/DOGE-USD.csv'))
-train_data = overall_data
-# train_data = overall_data[:round(len(overall_data) / 2)]
-eval_data = overall_data[round(len(overall_data) / 2):len(overall_data)]
+def start_model(training_data_path):
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-train_features = train_data.copy()
-train_labels = train_features[:, 3]
+    overall_data = array(pd.read_csv(training_data_path))
+    train_data = overall_data
+    # train_data = overall_data[:round(len(overall_data) / 2)]
+    eval_data = overall_data[round(len(overall_data) / 2):len(overall_data)]
 
-eval_features = eval_data.copy()
-eval_labels = eval_features[:, 3]
+    train_features = train_data.copy()
+    train_labels = train_features[:, 3]
 
-model = tf.keras.Sequential([
-    tf.keras.layers.Dense(64),
-    tf.keras.layers.Dense(1),
-])
+    eval_features = eval_data.copy()
+    eval_labels = eval_features[:, 3]
 
-lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
-    0.001,
-    decay_steps=len(train_data) * 1000,
-    decay_rate=1,
-    staircase=False)
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(64),
+        tf.keras.layers.Dense(1),
+    ])
 
-model.compile(
-    optimizer=tf.keras.optimizers.Adam(lr_schedule),
-    loss=tf.keras.losses.MeanSquaredError(),
-)
+    lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
+        0.001,
+        decay_steps=len(train_data) * 1000,
+        decay_rate=1,
+        staircase=False)
 
-history = model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10, steps_per_epoch=16,
-                    shuffle=True, verbose=0)
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(lr_schedule),
+        loss=tf.keras.losses.MeanSquaredError(),
+    )
+
+    model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10,
+              steps_per_epoch=16,
+              shuffle=True, verbose=0)
+
+    return model, eval_features, eval_labels
 
 
-def plot_predictions():
+def plot_predictions(model, eval_features, eval_labels):
     predictions = model.predict(eval_features)
 
     plt.figure(figsize=(10, 10))
@@ -83,7 +88,7 @@ total_accuracies = []
 total_differences = []
 
 
-def predict_and_check(previous_prices_list, actual_price_str, actual_price_float):
+def predict_and_check(previous_prices_list, actual_price_str, actual_price_float, model):
     # predictions = model.predict(array([[previous_prices_list]]))
     # print(predictions)
     prediction = round(model.predict(previous_prices_list)[-1:][0][0], 5)
@@ -101,7 +106,7 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     print('+------------------------------------+')
 
 
-def train_on_batched_live_data(batched_data):
+def train_on_batched_live_data(batched_data, model):
     batched_labels = batched_data[:, 0]
     model.fit(batched_data, batched_labels, batch_size=1, epochs=10, shuffle=True, verbose=0)
 
@@ -117,14 +122,14 @@ def batch_live_data(live_data, open_price, number_to_batch):
     return live_data_array
 
 
-def get_new_price():
-    response = requests.get('https://chain.so/api/v2/get_price/DOGE/USD').json()
+def get_new_price(url):
+    response = requests.get(url).json()
     new_price_str = response['data']['prices'][0]['price']
     new_price_float = float(new_price_str)
     return new_price_str, new_price_float
 
 
-def collect_live_data():
+def collect_live_data(model, url):
     number_to_batch = 10
     previous_prices = []
     open_price = 0
@@ -132,13 +137,13 @@ def collect_live_data():
     low_price = 0
     detected_change = True
     while True:
-        new_price_str, new_price_float = get_new_price()
+        new_price_str, new_price_float = get_new_price(url)
         new_price_float, open_price, high_price, low_price = determine_price_data(new_price_float, open_price,
                                                                                   high_price, low_price,
                                                                                   len(previous_prices))
         if len(previous_prices) == 0:
             previous_prices = [[new_price_float, open_price, high_price, low_price]]
-            predict_and_check(previous_prices, new_price_str, new_price_float)
+            predict_and_check(previous_prices, new_price_str, new_price_float, model)
             detected_change = False
         elif new_price_float != (previous_prices[-1:][0][0]):
             detected_change = True
@@ -146,14 +151,14 @@ def collect_live_data():
         if detected_change:
             previous_prices = np.vstack(
                 [previous_prices, [new_price_float, open_price, high_price, low_price]])
-            predict_and_check(previous_prices, new_price_str, new_price_float)
+            predict_and_check(previous_prices, new_price_str, new_price_float, model)
             detected_change = False
         else:
             detected_change = False
 
         if len(previous_prices) % number_to_batch == 0:
             batched_data = batch_live_data(previous_prices, open_price, number_to_batch)
-            train_on_batched_live_data(batched_data)
+            train_on_batched_live_data(batched_data, model)
             print('Re-training on past ' + str(number_to_batch) + ' live data prices')
             time.sleep(3)
             previous_prices = []
@@ -161,6 +166,12 @@ def collect_live_data():
         time.sleep(10)
 
 
-plot_predictions()
+def main():
+    model, eval_features, eval_labels = start_model('Resources/DOGE-USD.csv')
 
-collect_live_data()
+    plot_predictions(model, eval_features, eval_labels)
+    collect_live_data(model, 'https://chain.so/api/v2/get_price/DOGE/USD')
+
+
+if __name__ == "__main__":
+    main()
