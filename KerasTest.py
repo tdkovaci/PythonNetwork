@@ -59,23 +59,23 @@ def plot_predictions():
     plt.savefig('Resources/fig.png')
 
 
-def determine_price_data(new_price_input, open_price_input, high_price_input, low_price_input):
+def determine_price_data(new_price, open_price, high_price, low_price, length_of_previous_prices):
     temp_open_price, temp_high_price, temp_low_price = 0, 0, 0
 
-    if open_price_input == 0:
-        temp_open_price = new_price_input
+    if open_price == 0 or length_of_previous_prices % 10 == 0:
+        temp_open_price = new_price
 
-    if new_price_input > high_price_input:
-        temp_high_price = new_price_input
+    if new_price > high_price:
+        temp_high_price = new_price
     else:
-        temp_high_price = high_price_input
+        temp_high_price = high_price
 
-    if new_price_input < low_price_input or low_price_input == 0:
-        temp_low_price = new_price_input
+    if new_price < low_price or low_price == 0:
+        temp_low_price = new_price
     else:
-        temp_low_price = low_price_input
+        temp_low_price = low_price
 
-    return new_price_input, temp_open_price, temp_high_price, temp_low_price
+    return new_price, temp_open_price, temp_high_price, temp_low_price
 
 
 total_accuracies = []
