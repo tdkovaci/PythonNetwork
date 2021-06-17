@@ -39,7 +39,8 @@ model.compile(
     loss=tf.keras.losses.MeanSquaredError(),
 )
 
-history = model.fit(train_features, train_labels, batch_size=round(len(train_data)/16), epochs=10, steps_per_epoch=16, shuffle=True)
+history = model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10, steps_per_epoch=16,
+                    shuffle=True, verbose=0)
 
 
 def plot_predictions():
@@ -100,6 +101,22 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     print('+------------------------------------+')
 
 
+def train_on_batched_live_data(batched_data):
+    batched_labels = batched_data[:, 0]
+    model.fit(batched_data, batched_labels, batch_size=1, epochs=10, shuffle=True, verbose=0)
+
+
+def batch_live_data(live_data, open_price, number_to_batch):
+    live_data_array = live_data[-number_to_batch:]
+    live_max = np.amax(live_data_array)
+    live_min = np.amin(live_data_array)
+    live_data_array[:, 1] = open_price
+    live_data_array[:, 2] = live_max
+    live_data_array[:, 3] = live_min
+
+    return live_data_array
+
+
 def get_new_price():
     response = requests.get('https://chain.so/api/v2/get_price/DOGE/USD').json()
     new_price_str = response['data']['prices'][0]['price']
@@ -108,6 +125,7 @@ def get_new_price():
 
 
 def collect_live_data():
+    number_to_batch = 10
     previous_prices = []
     open_price = 0
     high_price = 0
@@ -116,7 +134,8 @@ def collect_live_data():
     while True:
         new_price_str, new_price_float = get_new_price()
         new_price_float, open_price, high_price, low_price = determine_price_data(new_price_float, open_price,
-                                                                                  high_price, low_price)
+                                                                                  high_price, low_price,
+                                                                                  len(previous_prices))
         if len(previous_prices) == 0:
             previous_prices = [[new_price_float, open_price, high_price, low_price]]
             predict_and_check(previous_prices, new_price_str, new_price_float)
@@ -131,6 +150,13 @@ def collect_live_data():
             detected_change = False
         else:
             detected_change = False
+
+        if len(previous_prices) % number_to_batch == 0:
+            batched_data = batch_live_data(previous_prices, open_price, number_to_batch)
+            train_on_batched_live_data(batched_data)
+            print('Re-training on past ' + str(number_to_batch) + ' live data prices')
+            time.sleep(3)
+            previous_prices = []
 
         time.sleep(10)
 
