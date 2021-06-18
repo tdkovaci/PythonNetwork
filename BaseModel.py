@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import time
 
+import keyboard as keyboard
 import requests
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ from numpy import array
 def start_model(training_data_path):
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    overall_data = array(pd.read_csv(training_data_path))
+    overall_data = array(pd.read_csv(training_data_path), dtype=float)
     train_data = overall_data
     # train_data = overall_data[:round(len(overall_data) / 2)]
     eval_data = overall_data[round(len(overall_data) / 2):len(overall_data)]
@@ -26,7 +27,8 @@ def start_model(training_data_path):
     eval_labels = eval_features[:, 3]
 
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(64),
+        tf.keras.layers.Dense(16, input_shape=(4,)),
+        tf.keras.layers.Dense(16),
         tf.keras.layers.Dense(1),
     ])
 
@@ -45,11 +47,30 @@ def start_model(training_data_path):
               steps_per_epoch=16,
               shuffle=True, verbose=0)
 
+    average_accuracy = plot_predictions(model, eval_features, eval_labels)
+
+    while average_accuracy < 95:
+        model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10,
+                  steps_per_epoch=16,
+                  shuffle=True, verbose=0)
+        average_accuracy = plot_predictions(model, eval_features, eval_labels)
+
     return model, eval_features, eval_labels
 
 
 def plot_predictions(model, eval_features, eval_labels):
     predictions = model.predict(eval_features)
+
+    average_accuracy = 0
+
+    for i in range(len(eval_features)):
+        difference = round(predictions[i][0] - eval_features[i][0], 5)
+        percent_error = round((difference / eval_features[i][0]) * 100, 5)
+        accuracy = round(100 - abs(percent_error), 5)
+        average_accuracy += accuracy
+
+    average_accuracy /= len(eval_features)
+    print('Average accuracy of model is: ' + str(average_accuracy))
 
     plt.figure(figsize=(10, 10))
     plt.scatter(eval_labels, predictions, c='crimson')
@@ -63,6 +84,8 @@ def plot_predictions(model, eval_features, eval_labels):
     plt.ylabel('Predictions', fontsize=15)
     plt.axis('equal')
     plt.savefig('Resources/fig.png')
+
+    return average_accuracy
 
 
 def determine_price_data(new_price, open_price, high_price, low_price, length_of_previous_prices):
@@ -86,10 +109,15 @@ def determine_price_data(new_price, open_price, high_price, low_price, length_of
 
 total_accuracies = []
 total_differences = []
+white = '\033[0;37;40m'
+blue = '\033[1;34;40m'
+green = '\033[1;32;40m'
+yellow = '\033[1;33;40m'
+red = '\033[1;31;40m'
 
 
 def predict_and_check(previous_prices_list, actual_price_str, actual_price_float, model):
-    # predictions = model.predict(array([[previous_prices_list]]))
+    # predictions = model.predict_on_batch(array([[previous_prices_list]]))
     # print(predictions)
     prediction = round(model.predict(previous_prices_list)[-1:][0][0], 5)
     difference = round(prediction - actual_price_float, 5)
@@ -97,18 +125,24 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     accuracy = round(100 - abs(percent_error), 5)
     total_accuracies.append(accuracy)
     total_differences.append(difference)
-    print('Newest prediction was: ' + str(prediction))
-    print('Actual price was: ' + actual_price_str)
-    print('Difference was: ' + str(difference))
-    print('Mean Difference is: ' + str(round(np.array(total_differences).mean(), 5)))
-    print('Accuracy was: ' + str(accuracy))
-    print('Mean Accuracy is: ' + str(round(np.array(total_accuracies).mean(), 5)))
-    print('+------------------------------------+')
+
+    if accuracy >= 85:
+        accuracy_color = green
+    elif accuracy >= 70:
+        accuracy_color = yellow
+    else:
+        accuracy_color = red
+
+    print(f'{white} Newest prediction was: {blue}{prediction}')
+    print(f'{white} Actual price was: {green}{actual_price_str}')
+    print(f'{white} Difference was: {red}{difference}')
+    print(f'{white} Accuracy was: {accuracy_color}{accuracy}')
+    print(f'{white} +------------------------------------+')
 
 
 def train_on_batched_live_data(batched_data, model):
     batched_labels = batched_data[:, 0]
-    model.fit(batched_data, batched_labels, batch_size=1, epochs=10, shuffle=True, verbose=0)
+    model.fit(batched_data, batched_labels, batch_size=1, epochs=2, shuffle=True, verbose=0)
 
 
 def batch_live_data(live_data, open_price, number_to_batch):
@@ -129,47 +163,62 @@ def get_new_price(url):
     return new_price_str, new_price_float
 
 
+def listen_for_input():
+    if keyboard.read_key() == 'p':
+        print('Mean Difference is: ' + str(round(np.array(total_differences).mean(), 5)))
+        print('Mean Accuracy is: ' + str(round(np.array(total_accuracies).mean(), 5)))
+        print('+------------------------------------+')
+    elif keyboard.read_key() == 'e':
+        print('Export model')
+    elif keyboard.read_key() == 'c':
+        os.system('CLS')
+
+
 def collect_live_data(model, url):
     number_to_batch = 10
+    loop_iterator = 0
     previous_prices = []
     open_price = 0
     high_price = 0
     low_price = 0
     detected_change = True
     while True:
-        new_price_str, new_price_float = get_new_price(url)
-        new_price_float, open_price, high_price, low_price = determine_price_data(new_price_float, open_price,
-                                                                                  high_price, low_price,
-                                                                                  len(previous_prices))
-        if len(previous_prices) == 0:
-            previous_prices = [[new_price_float, open_price, high_price, low_price]]
-            predict_and_check(previous_prices, new_price_str, new_price_float, model)
-            detected_change = False
-        elif new_price_float != (previous_prices[-1:][0][0]):
-            detected_change = True
+        listen_for_input()
 
-        if detected_change:
-            previous_prices = np.vstack(
-                [previous_prices, [new_price_float, open_price, high_price, low_price]])
-            predict_and_check(previous_prices, new_price_str, new_price_float, model)
-            detected_change = False
-        else:
-            detected_change = False
+        if loop_iterator % 5 == 0:
+            new_price_str, new_price_float = get_new_price(url)
+            new_price_float, open_price, high_price, low_price = determine_price_data(new_price_float, open_price,
+                                                                                      high_price, low_price,
+                                                                                      len(previous_prices))
+            if len(previous_prices) == 0:
+                previous_prices = [[new_price_float, open_price, high_price, low_price]]
+                predict_and_check(previous_prices, new_price_str, new_price_float, model)
+                detected_change = False
+            elif new_price_float != (previous_prices[-1:][0][0]):
+                detected_change = True
 
-        if len(previous_prices) % number_to_batch == 0:
-            batched_data = batch_live_data(previous_prices, open_price, number_to_batch)
-            train_on_batched_live_data(batched_data, model)
-            print('XXXXXXXXX Re-training on past ' + str(number_to_batch) + ' live data prices XXXXXXXXX')
-            time.sleep(3)
-            previous_prices = []
+            if detected_change:
+                previous_prices = np.vstack(
+                    [previous_prices, [new_price_float, open_price, high_price, low_price]])
+                predict_and_check(previous_prices, new_price_str, new_price_float, model)
+                detected_change = False
+            else:
+                detected_change = False
 
-        time.sleep(10)
+        # if len(previous_prices) % number_to_batch == 0:
+        #     batched_data = batch_live_data(previous_prices, open_price, number_to_batch)
+        #     train_on_batched_live_data(batched_data, model)
+        #     print('XXXXXXXXX Re-training on past ' + str(number_to_batch) + ' live data prices XXXXXXXXX')
+        #     time.sleep(3)
+        #     previous_prices = []
+
+        time.sleep(1)
+        loop_iterator += 1
 
 
 def main():
     model, eval_features, eval_labels = start_model('Resources/DOGE-USD.csv')
 
-    plot_predictions(model, eval_features, eval_labels)
     collect_live_data(model, 'https://chain.so/api/v2/get_price/DOGE/USD')
 
 
