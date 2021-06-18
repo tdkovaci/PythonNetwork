@@ -2,7 +2,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import time
 
-import keyboard as keyboard
+import colorama as colorama
+import keras.backend
 import requests
 import numpy as np
 import pandas as pd
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from numpy import array
+from colorama import Fore
 
 
 def start_model(training_data_path):
@@ -50,6 +52,7 @@ def start_model(training_data_path):
     average_accuracy = plot_predictions(model, eval_features, eval_labels)
 
     while average_accuracy < 95:
+        keras.backend.clear_session()
         model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10,
                   steps_per_epoch=16,
                   shuffle=True, verbose=0)
@@ -109,11 +112,6 @@ def determine_price_data(new_price, open_price, high_price, low_price, length_of
 
 total_accuracies = []
 total_differences = []
-white = '\033[0;37;40m'
-blue = '\033[1;34;40m'
-green = '\033[1;32;40m'
-yellow = '\033[1;33;40m'
-red = '\033[1;31;40m'
 
 
 def predict_and_check(previous_prices_list, actual_price_str, actual_price_float, model):
@@ -127,17 +125,27 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     total_differences.append(difference)
 
     if accuracy >= 85:
-        accuracy_color = green
+        accuracy_color = Fore.GREEN
     elif accuracy >= 70:
-        accuracy_color = yellow
+        accuracy_color = Fore.YELLOW
     else:
-        accuracy_color = red
+        accuracy_color = Fore.RED
 
-    print(f'{white} Newest prediction was: {blue}{prediction}')
-    print(f'{white} Actual price was: {green}{actual_price_str}')
-    print(f'{white} Difference was: {red}{difference}')
-    print(f'{white} Accuracy was: {accuracy_color}{accuracy}')
-    print(f'{white} +------------------------------------+')
+    average_accuracy = round(np.array(total_accuracies).mean(), 5)
+    if average_accuracy >= 85:
+        average_accuracy_color = Fore.GREEN
+    elif average_accuracy >= 70:
+        average_accuracy_color = Fore.YELLOW
+    else:
+        average_accuracy_color = Fore.RED
+
+    print(f'{Fore.WHITE}Newest prediction was: {Fore.LIGHTBLUE_EX}{str(prediction)}')
+    print(f'{Fore.WHITE}Actual price was: {Fore.GREEN}{actual_price_str}')
+    print(f'{Fore.WHITE}Difference was: {Fore.LIGHTRED_EX}{difference}')
+    print(f'{Fore.WHITE}Mean Difference is: {Fore.LIGHTRED_EX}{round(np.array(total_differences).mean(), 5)}')
+    print(f'{Fore.WHITE}Accuracy was: {accuracy_color}{accuracy}')
+    print(f'{Fore.WHITE}Mean Accuracy is: {average_accuracy_color}{average_accuracy}')
+    print(f'{Fore.WHITE}+------------------------------------+')
 
 
 def train_on_batched_live_data(batched_data, model):
@@ -163,17 +171,6 @@ def get_new_price(url):
     return new_price_str, new_price_float
 
 
-def listen_for_input():
-    if keyboard.read_key() == 'p':
-        print('Mean Difference is: ' + str(round(np.array(total_differences).mean(), 5)))
-        print('Mean Accuracy is: ' + str(round(np.array(total_accuracies).mean(), 5)))
-        print('+------------------------------------+')
-    elif keyboard.read_key() == 'e':
-        print('Export model')
-    elif keyboard.read_key() == 'c':
-        os.system('CLS')
-
-
 def collect_live_data(model, url):
     number_to_batch = 10
     loop_iterator = 0
@@ -183,7 +180,6 @@ def collect_live_data(model, url):
     low_price = 0
     detected_change = True
     while True:
-        listen_for_input()
 
         if loop_iterator % 5 == 0:
             new_price_str, new_price_float = get_new_price(url)
