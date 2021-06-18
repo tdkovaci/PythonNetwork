@@ -62,11 +62,11 @@ def collect_live_data(model, url):
             else:
                 detected_change = False
 
-        if len(previous_prices) % number_to_batch == 0:
-            train_on_batched_live_data(previous_prices, open_price, number_to_batch, model)
-            print(f'XXXXXXXXX Re-training on past {number_to_batch} live data prices XXXXXXXXX')
-            time.sleep(3)
-            previous_prices = []
+        # if len(previous_prices) % number_to_batch == 0:
+        #     train_on_batched_live_data(previous_prices, open_price, number_to_batch, model)
+        #     print(f'XXXXXXXXX Re-training on past {number_to_batch} live data prices XXXXXXXXX')
+        #     time.sleep(3)
+        #     previous_prices = []
 
         time.sleep(1)
         loop_iterator += 1
