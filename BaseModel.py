@@ -12,8 +12,8 @@ total_accuracies = []
 total_differences = []
 
 
-def start_model(model_path):
-    response = requests.get('https://api.pro.coinbase.com/products/DOGE-USD/candles?granularity=60').json()
+def start_model(model_path, api_url, number_to_batch):
+    response = requests.get(api_url).json()
     overall_data = pd.DataFrame(response, columns=['Timestamp', 'Low', 'High', 'Open', 'Close', 'Volume'])
     overall_data.drop('Timestamp', 1, inplace=True)
     overall_data = np.array(overall_data)
@@ -28,7 +28,7 @@ def start_model(model_path):
     x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
     try:
-        model = keras.models.load_model('Resources/doge_model')
+        model = keras.models.load_model(model_path)
     except OSError:
 
         model = tf.keras.Sequential([
@@ -48,7 +48,7 @@ def start_model(model_path):
             loss=tf.keras.losses.MeanSquaredError(),
         )
 
-        model.fit(x_train, y_train, epochs=100, batch_size=30)
+        model.fit(x_train, y_train, epochs=100, batch_size=number_to_batch)
 
         model.save(model_path, save_format="h5")
 
@@ -123,7 +123,7 @@ def predict_and_check(previous_prices_list, actual_price_float, model, digits_to
     print(f'{Fore.WHITE}+------------------------------------+')
 
 
-def train_on_batched_live_data(live_data, model, model_path):
+def train_on_batched_live_data(live_data, model, model_path, number_to_batch):
     print(f'XXXXXXXXX Re-training on past 300 live data prices XXXXXXXXX')
 
     live_data = np.array(live_data)
@@ -136,6 +136,6 @@ def train_on_batched_live_data(live_data, model, model_path):
     x_train, y_train = np.array(x_train), np.array(y_train)
     x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
-    model.fit(x_train, y_train, batch_size=30, epochs=100, shuffle=True, verbose=0)
+    model.fit(x_train, y_train, batch_size=number_to_batch, epochs=100, shuffle=True, verbose=0)
     model.save(model_path, save_format="h5")
     print('XXXXXXXXX Finished training! XXXXXXXXX')
