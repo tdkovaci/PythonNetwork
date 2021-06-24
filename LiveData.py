@@ -34,14 +34,14 @@ def get_new_price(url):
     return price_history
 
 
-def collect_live_data(model, url):
+def collect_live_data(model, url, model_path, digits_to_round_to):
     while True:
         price_history = get_new_price(url)
         last_price_history = np.array(price_history)[-1:][0]
         new_closing_price = last_price_history[3]
 
-        predict_and_check(price_history, new_closing_price, model)
+        predict_and_check(price_history, new_closing_price, model, digits_to_round_to)
 
-        train_on_batched_live_data(price_history, model)
+        train_on_batched_live_data(price_history, model, model_path)
 
         time.sleep(60)

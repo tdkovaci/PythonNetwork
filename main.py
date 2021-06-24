@@ -1,26 +1,40 @@
+import logging
+
 from BaseModel import start_model
 from LiveData import collect_live_data
+import os
+import tensorflow as tf
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+tf.get_logger().setLevel('ERROR')
 
 
 def main():
     print("Predict for DOGE or LITE?")
-    # answer = str(input())
+    answer = str(input())
     has_correct_answer = False
 
-    # while not has_correct_answer:
-    #     if answer.lower() == "doge":
-    #         has_correct_answer = True
-    model, eval_features, eval_labels = start_model('Resources/DOGE-USD.csv')
+    model_path = ""
+    api_url = ""
+    digits_to_round_to = 2
 
-    collect_live_data(model, 'https://api.pro.coinbase.com/products/DOGE-USD/candles?granularity=60')
-        # elif answer.lower() == "lite":
-        #     has_correct_answer = True
-        #     model, eval_features, eval_labels = start_model('Resources/LTC-USD.csv')
-        #
-        #     collect_live_data(model, 'https://chain.so/api/v2/get_price/LTC/USD')
-        # else:
-        #     print("Incorrect. Please type DOGE or LITE.")
-        #     answer = str(input())
+    while not has_correct_answer:
+        if answer.lower() == "doge":
+            model_path = 'Resources/doge_model'
+            api_url = 'https://api.pro.coinbase.com/products/DOGE-USD/candles?granularity=60'
+            digits_to_round_to = 4
+            break
+        elif answer.lower() == "lite":
+            model_path = 'Resources/lite_model'
+            api_url = 'https://api.pro.coinbase.com/products/LTC-USD/candles?granularity=60'
+            digits_to_round_to = 2
+            break
+        else:
+            print("Incorrect. Please type DOGE or LITE.")
+            answer = str(input())
+
+    model = start_model(model_path)
+    collect_live_data(model, api_url, model_path, digits_to_round_to)
 
 
 if __name__ == "__main__":
