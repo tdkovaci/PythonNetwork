@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from numpy import array
 from colorama import Fore
+from sklearn.preprocessing import MinMaxScaler
 
 total_accuracies = []
 total_differences = []
@@ -20,58 +21,65 @@ total_differences = []
 def start_model(training_data_path):
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-    overall_data = array(pd.read_csv(training_data_path), dtype=float)
-    train_data = overall_data
-    # train_data = overall_data[:round(len(overall_data) / 2)]
-    eval_data = overall_data[round(len(overall_data) / 2):len(overall_data)]
+    historical_data = np.array(pd.read_csv(training_data_path))
 
-    train_features = train_data.copy()
-    train_labels = train_features[:, 3]
+    response = requests.get('https://api.pro.coinbase.com/products/DOGE-USD/candles?granularity=60').json()
+    overall_data = pd.DataFrame(response, columns=['Timestamp', 'Low', 'High', 'Open', 'Close', 'Volume'])
+    overall_data.drop('Timestamp', 1, inplace=True)
+    overall_data = np.array(overall_data)
 
-    eval_features = eval_data.copy()
-    eval_labels = eval_features[:, 3]
+    x_train = []
+    y_train = []
+    for i in range(5, 300):
+        x_train.append(overall_data[i - 5:i, 0])
+        y_train.append(overall_data[i, 0])
+    x_train, y_train = np.array(x_train), np.array(y_train)
 
-    model = tf.keras.Sequential([
-        tf.keras.layers.Dense(16, input_shape=(4,)),
-        tf.keras.layers.Dense(16),
-        tf.keras.layers.Dense(1),
-    ])
+    x_hist = []
+    y_hist = []
+    for i in range(5, 300):
+        x_hist.append(historical_data[i - 5:i, 0])
+        y_hist.append(historical_data[i, 0])
+    x_hist, y_hist = np.array(x_hist), np.array(y_hist)
 
-    lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
-        0.001,
-        decay_steps=len(train_data) * 1000,
-        decay_rate=1,
-        staircase=False)
+    x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+    x_hist = np.reshape(x_hist, (x_hist.shape[0], x_hist.shape[1], 1))
 
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(lr_schedule),
-        loss=tf.keras.losses.MeanSquaredError(),
-    )
+    try:
+        model = keras.models.load_model('Resources/doge_model')
+    except OSError:
 
-    model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10,
-              steps_per_epoch=16,
-              shuffle=True, verbose=0)
+        model = tf.keras.Sequential([
+            tf.keras.layers.LSTM(units=50, return_sequences=True, input_shape=(x_train.shape[1], 1)),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.LSTM(units=50, return_sequences=True),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.LSTM(units=50, return_sequences=True),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.LSTM(units=50),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Dense(1)
+        ])
 
-    average_accuracy = plot_predictions(model, eval_features, eval_labels)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(),
+            loss=tf.keras.losses.MeanSquaredError(),
+        )
 
-    while average_accuracy < 95:
-        keras.backend.clear_session()
-        model.fit(train_features, train_labels, batch_size=round(len(train_data) / 16), epochs=10,
-                  steps_per_epoch=16,
-                  shuffle=True, verbose=0)
-        average_accuracy = plot_predictions(model, eval_features, eval_labels)
+        model.fit(x_train, y_train, epochs=100, batch_size=8)
 
-    return model, eval_features, eval_labels
+        model.save('Resources/doge_model')
+
+    return model, x_hist, y_hist
 
 
 def plot_predictions(model, eval_features, eval_labels):
     predictions = model.predict(eval_features)
-
     average_accuracy = 0
 
     for i in range(len(eval_features)):
-        difference = round(predictions[i][0] - eval_features[i][0], 5)
-        percent_error = round((difference / eval_features[i][0]) * 100, 5)
+        difference = round((predictions[i][0] - eval_features[i][0])[0], 5)
+        percent_error = round((difference / eval_features[i][0])[0] * 100, 5)
         accuracy = round(100 - abs(percent_error), 5)
         average_accuracy += accuracy
 
@@ -94,9 +102,12 @@ def plot_predictions(model, eval_features, eval_labels):
     return average_accuracy
 
 
-def predict_and_check(previous_prices_list, actual_price_str, actual_price_float, model):
+def predict_and_check(previous_prices_list, actual_price_float, model):
     # predictions = model.predict_on_batch(array([[previous_prices_list]]))
     # print(predictions)
+    previous_prices_list = np.array(previous_prices_list)
+    previous_prices_list = np.reshape(previous_prices_list, (previous_prices_list.shape[0], previous_prices_list.shape[1], 1))
+
     prediction = round(model.predict(previous_prices_list)[-1:][0][0], 5)
     difference = round(prediction - actual_price_float, 5)
     percent_error = round((difference / actual_price_float) * 100, 5)
@@ -119,6 +130,8 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     else:
         average_accuracy_color = Fore.RED
 
+    actual_price_str = str(actual_price_float)
+
     print(f'{Fore.WHITE}Newest prediction was: {Fore.LIGHTBLUE_EX}{str(prediction)}')
     print(f'{Fore.WHITE}Actual price was: {Fore.GREEN}{actual_price_str}')
     print(f'{Fore.WHITE}Difference was: {Fore.LIGHTRED_EX}{difference}')
@@ -128,13 +141,19 @@ def predict_and_check(previous_prices_list, actual_price_str, actual_price_float
     print(f'{Fore.WHITE}+------------------------------------+')
 
 
-def train_on_batched_live_data(live_data, open_price, number_to_batch, model):
-    live_data_array = live_data[-number_to_batch:]
-    live_max = np.amax(live_data_array)
-    live_min = np.amin(live_data_array)
-    live_data_array[:, 1] = open_price
-    live_data_array[:, 2] = live_max
-    live_data_array[:, 3] = live_min
+def train_on_batched_live_data(live_data, model):
+    print(f'XXXXXXXXX Re-training on past 300 live data prices XXXXXXXXX')
 
-    batched_labels = live_data_array[:, 0]
-    model.fit(live_data_array, batched_labels, batch_size=1, epochs=2, shuffle=True, verbose=0)
+    live_data = np.array(live_data)
+
+    x_train = []
+    y_train = []
+    for i in range(5, 300):
+        x_train.append(live_data[i - 5:i, 0])
+        y_train.append(live_data[i, 0])
+    x_train, y_train = np.array(x_train), np.array(y_train)
+    x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+
+    model.fit(x_train, y_train, batch_size=8, epochs=100, shuffle=True, verbose=0)
+    model.save('Resources/doge_model')
+    print('XXXXXXXXX Finished training! XXXXXXXXX')

@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+import pandas as pd
 import requests
 
 from BaseModel import predict_and_check, train_on_batched_live_data
@@ -27,46 +28,20 @@ def determine_price_data(new_price, open_price, high_price, low_price, length_of
 
 def get_new_price(url):
     response = requests.get(url).json()
-    new_price_str = response['data']['prices'][0]['price']
-    new_price_float = float(new_price_str)
-    return new_price_str, new_price_float
+    price_history = pd.DataFrame(response, columns=['Timestamp', 'Low', 'High', 'Open', 'Close', 'Volume'])
+    price_history.drop('Timestamp', 1, inplace=True)
+
+    return price_history
 
 
 def collect_live_data(model, url):
-    number_to_batch = 10
-    loop_iterator = 0
-    previous_prices = []
-    open_price = 0
-    high_price = 0
-    low_price = 0
-    detected_change = True
     while True:
+        price_history = get_new_price(url)
+        last_price_history = np.array(price_history)[-1:][0]
+        new_closing_price = last_price_history[3]
 
-        if loop_iterator % 5 == 0:
-            new_price_str, new_price_float = get_new_price(url)
-            new_price_float, open_price, high_price, low_price = determine_price_data(new_price_float, open_price,
-                                                                                      high_price, low_price,
-                                                                                      len(previous_prices))
-            if len(previous_prices) == 0:
-                previous_prices = [[new_price_float, open_price, high_price, low_price]]
-                predict_and_check(previous_prices, new_price_str, new_price_float, model)
-                detected_change = False
-            elif new_price_float != (previous_prices[-1:][0][0]):
-                detected_change = True
+        predict_and_check(price_history, new_closing_price, model)
 
-            if detected_change:
-                previous_prices = np.vstack(
-                    [previous_prices, [new_price_float, open_price, high_price, low_price]])
-                predict_and_check(previous_prices, new_price_str, new_price_float, model)
-                detected_change = False
-            else:
-                detected_change = False
+        train_on_batched_live_data(price_history, model)
 
-        # if len(previous_prices) % number_to_batch == 0:
-        #     train_on_batched_live_data(previous_prices, open_price, number_to_batch, model)
-        #     print(f'XXXXXXXXX Re-training on past {number_to_batch} live data prices XXXXXXXXX')
-        #     time.sleep(3)
-        #     previous_prices = []
-
-        time.sleep(1)
-        loop_iterator += 1
+        time.sleep(60)
