@@ -120,6 +120,7 @@ def predict_and_check(previous_prices_list, actual_price_float, model, digits_to
     print(f'{Fore.WHITE}Mean Difference is: {Fore.LIGHTRED_EX}{round(np.array(total_differences).mean(), digits_to_round_to)}')
     print(f'{Fore.WHITE}Accuracy was: {accuracy_color}{accuracy}')
     print(f'{Fore.WHITE}Mean Accuracy is: {average_accuracy_color}{average_accuracy}')
+    print(f'{Fore.WHITE}Over {len(total_differences)} predictions for the current session')
     print(f'{Fore.WHITE}+------------------------------------+')
 
 
