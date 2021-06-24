@@ -32,6 +32,12 @@ def main():
             digits_to_round_to = 2
             number_to_batch = 15
             break
+        elif answer.lower() == "test":
+            model_path = 'Resources/test_model'
+            api_url = 'https://api.pro.coinbase.com/products/LTC-USD/candles?granularity=60'
+            digits_to_round_to = 2
+            number_to_batch = 15
+            break
         else:
             print("Incorrect. Please type DOGE or LITE.")
             answer = str(input())

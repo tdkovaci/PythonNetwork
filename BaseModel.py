@@ -55,35 +55,6 @@ def start_model(model_path, api_url, number_to_batch):
     return model
 
 
-def plot_predictions(model, eval_features, eval_labels):
-    predictions = model.predict(eval_features)
-    average_accuracy = 0
-
-    for i in range(len(eval_features)):
-        difference = round((predictions[i][0] - eval_features[i][0])[0], 5)
-        percent_error = round((difference / eval_features[i][0])[0] * 100, 5)
-        accuracy = round(100 - abs(percent_error), 5)
-        average_accuracy += accuracy
-
-    average_accuracy /= len(eval_features)
-    print('Average accuracy of model is: ' + str(average_accuracy))
-
-    plt.figure(figsize=(10, 10))
-    plt.scatter(eval_labels, predictions, c='crimson')
-    plt.yscale('log')
-    plt.xscale('log')
-
-    p1 = max(max(predictions), max(eval_labels))
-    p2 = min(min(predictions), min(eval_labels))
-    plt.plot([p1, p2], [p1, p2], 'b-')
-    plt.xlabel('True Values', fontsize=15)
-    plt.ylabel('Predictions', fontsize=15)
-    plt.axis('equal')
-    plt.savefig('Resources/fig.png')
-
-    return average_accuracy
-
-
 def predict_and_check(previous_prices_list, actual_price_float, model, digits_to_round_to):
     previous_prices_list = np.array(previous_prices_list)
     previous_prices_list = np.reshape(previous_prices_list,
