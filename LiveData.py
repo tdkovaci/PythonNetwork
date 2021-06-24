@@ -15,7 +15,8 @@ def get_new_price(url):
     return price_history
 
 
-def collect_live_data(model, api_url, model_path, digits_to_round_to, number_to_batch):
+def collect_live_data(model, api_url, model_path, digits_to_round_to, number_to_batch, epochs):
+
     while True:
         price_history = get_new_price(api_url)
         last_price_history = np.array(price_history)[-1:][0]
@@ -23,8 +24,5 @@ def collect_live_data(model, api_url, model_path, digits_to_round_to, number_to_
 
         predict_and_check(price_history, new_closing_price, model, digits_to_round_to)
 
-        time.sleep(60)
-
-        train_on_batched_live_data(price_history, model, model_path, number_to_batch)
-
-        time.sleep(60)
+        time.sleep(120)
+        train_on_batched_live_data(price_history, model, model_path, number_to_batch, epochs)

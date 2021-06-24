@@ -12,7 +12,7 @@ total_accuracies = []
 total_differences = []
 
 
-def start_model(model_path, api_url, number_to_batch):
+def start_model(model_path, api_url, number_to_batch, epochs):
     response = requests.get(api_url).json()
     overall_data = pd.DataFrame(response, columns=['Timestamp', 'Low', 'High', 'Open', 'Close', 'Volume'])
     overall_data.drop('Timestamp', 1, inplace=True)
@@ -48,7 +48,7 @@ def start_model(model_path, api_url, number_to_batch):
             loss=tf.keras.losses.MeanSquaredError(),
         )
 
-        model.fit(x_train, y_train, epochs=100, batch_size=number_to_batch)
+        model.fit(x_train, y_train, epochs=epochs, batch_size=number_to_batch)
 
         model.save(model_path, save_format="h5")
 
@@ -95,7 +95,7 @@ def predict_and_check(previous_prices_list, actual_price_float, model, digits_to
     print(f'{Fore.WHITE}+------------------------------------+')
 
 
-def train_on_batched_live_data(live_data, model, model_path, number_to_batch):
+def train_on_batched_live_data(live_data, model, model_path, number_to_batch, epochs):
     print(f'XXXXXXXXX Re-training on past 300 live data prices XXXXXXXXX')
 
     live_data = np.array(live_data)
@@ -108,6 +108,6 @@ def train_on_batched_live_data(live_data, model, model_path, number_to_batch):
     x_train, y_train = np.array(x_train), np.array(y_train)
     x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
-    model.fit(x_train, y_train, batch_size=number_to_batch, epochs=100, shuffle=True, verbose=0)
+    model.fit(x_train, y_train, batch_size=number_to_batch, epochs=epochs, shuffle=True, verbose=0)
     model.save(model_path, save_format="h5")
     print('XXXXXXXXX Finished training! XXXXXXXXX')

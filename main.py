@@ -18,32 +18,39 @@ def main():
     api_url = ""
     digits_to_round_to = 2
     number_to_batch = 8
+    epochs = 100
 
     while not has_correct_answer:
         if answer.lower() == "doge":
             model_path = 'Resources/doge_model'
             api_url = 'https://api.pro.coinbase.com/products/DOGE-USD/candles?granularity=60'
             digits_to_round_to = 4
-            number_to_batch = 8
+            number_to_batch = 3
+            epochs = 100
+
             break
         elif answer.lower() == "lite":
             model_path = 'Resources/lite_model'
             api_url = 'https://api.pro.coinbase.com/products/LTC-USD/candles?granularity=60'
             digits_to_round_to = 2
-            number_to_batch = 15
+            number_to_batch = 3
+            epochs = 100
+
             break
         elif answer.lower() == "test":
             model_path = 'Resources/test_model'
             api_url = 'https://api.pro.coinbase.com/products/LTC-USD/candles?granularity=60'
             digits_to_round_to = 2
-            number_to_batch = 15
+            number_to_batch = 3
+            epochs = 100
+
             break
         else:
             print("Incorrect. Please type DOGE or LITE.")
             answer = str(input())
 
-    model = start_model(model_path, api_url, number_to_batch)
-    collect_live_data(model, api_url, model_path, digits_to_round_to, number_to_batch)
+    model = start_model(model_path, api_url, number_to_batch, epochs)
+    collect_live_data(model, api_url, model_path, digits_to_round_to, number_to_batch, epochs)
 
 
 if __name__ == "__main__":
